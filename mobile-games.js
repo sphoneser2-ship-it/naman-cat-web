@@ -304,32 +304,40 @@
   }
   /* ================= 야바위 =================
      CAP: at most 12 swaps per round and never faster than 0.3 s per swap. */
+  /* 야바위 gets properly hard: more cups (3 → 4 at 6 points → 5 at 15), more and faster swaps, and from
+     10 points two pairs sometimes swap at the same moment. CAP: 22 swaps, 0.2 s each, 5 cups. */
+  const cupCount = sc => (sc >= 15 ? 5 : sc >= 6 ? 4 : 3);
   function newCups() {
-    const g = { kind: 'cups', score: 0, lives: 3, slots: [0, 1, 2], treat: Math.floor(Math.random() * 3), phase: 'show', t: 0, swaps: [], cur: null, lift: [0, 0, 0], pick: -1, over: false, msg: '' };
+    const g = { kind: 'cups', score: 0, lives: 3, n: 0, slots: [], treat: 0, phase: 'show', t: 0, swaps: [], cur: null, lift: [], pick: -1, over: false, msg: '' };
     ctl.innerHTML = '';
     setTop('야바위', 0, 3);
     startRound(g);
     return g;
   }
   function startRound(g) {
-    g.phase = 'show'; g.t = 1.3; g.pick = -1; g.msg = '간식을 잘 보세요!';
-    g.lift = [0, 0, 0]; g.lift[g.treat] = 1;
-    const n = Math.min(4 + g.score, 12);
-    g.dur = Math.max(0.3, 0.55 - g.score * 0.025);
+    const n = cupCount(g.score), grew = g.n && n > g.n;
+    if (n !== g.n) { g.n = n; g.slots = [...Array(n).keys()]; g.treat = Math.floor(Math.random() * n); g.lift = Array(n).fill(0); }
+    g.phase = 'show'; g.t = grew ? 1.8 : 1.3; g.pick = -1; g.msg = grew ? '컵이 하나 늘었어요! 잘 보세요' : '간식을 잘 보세요!';
+    g.lift.fill(0); g.lift[g.treat] = 1;
+    const steps = Math.min(4 + Math.round(g.score * 1.1), 22);
+    g.dur = Math.max(0.2, 0.55 - g.score * 0.02);
+    const dbl = n >= 4 && g.score >= 10 ? Math.min(0.5, (g.score - 9) * 0.06) : 0;
+    const pair = (skip) => { const free = g.slots.map((_, i) => i).filter(i => !skip.includes(i)); const a = free.splice(Math.floor(Math.random() * free.length), 1)[0]; const b = free[Math.floor(Math.random() * free.length)]; return [a, b]; };
     g.swaps = [];
-    for (let i = 0; i < n; i++) { const a = Math.floor(Math.random() * 3); let b = Math.floor(Math.random() * 2); if (b >= a) b++; g.swaps.push([a, b]); }
+    for (let i = 0; i < steps; i++) { const p1 = pair([]); g.swaps.push(Math.random() < dbl ? [p1, pair(p1)] : [p1]); }
   }
   function stepCups(g, dt) {
-    for (let i = 0; i < 3; i++) { const want = (g.phase === 'show' && i === g.treat) || (g.phase === 'reveal' && (i === g.pick || i === g.treat)) ? 1 : 0; g.lift[i] += (want - g.lift[i]) * Math.min(1, dt * 10); }
+    for (let i = 0; i < g.n; i++) { const want = (g.phase === 'show' && i === g.treat) || (g.phase === 'reveal' && (i === g.pick || i === g.treat)) ? 1 : 0; g.lift[i] += (want - g.lift[i]) * Math.min(1, dt * 10); }
     if (g.over) return;
     g.t -= dt;
-    if (g.phase === 'show' && g.t <= 0) { g.phase = 'shuffle'; g.msg = '섞는 중…'; g.cur = null; }
+    if (g.phase === 'show' && g.t <= 0) g.phase = 'drop';                       // put the cup fully down first, so the treat never peeks out
+    if (g.phase === 'drop' && g.lift[g.treat] < 0.02) { g.lift[g.treat] = 0; g.phase = 'shuffle'; g.msg = '섞는 중…'; g.cur = null; }
     if (g.phase === 'shuffle') {
       if (!g.cur || g.cur.u >= 1) {
-        if (g.cur) { const [a, b] = g.cur.pair; const t2 = g.slots[a]; g.slots[a] = g.slots[b]; g.slots[b] = t2; }
+        if (g.cur) for (const [a, b] of g.cur.pairs) { const t2 = g.slots[a]; g.slots[a] = g.slots[b]; g.slots[b] = t2; }
         const nx = g.swaps.shift();
         if (!nx) { g.phase = 'pick'; g.cur = null; g.msg = '간식은 어디에 있을까요?'; return; }
-        g.cur = { pair: nx, u: 0 }; sfx('swish');
+        g.cur = { pairs: nx, u: 0 }; sfx('swish');
       } else g.cur.u = Math.min(1, g.cur.u + dt / g.dur);
     }
     if (g.phase === 'reveal' && g.t <= 0) {
@@ -337,22 +345,25 @@
       startRound(g);
     }
   }
+  function cupLayout(g, S) { const gap = Math.min(130, (S.W - 24) / g.n); return { gap, sc: Math.min(1, gap / 98), base: S.H * 0.62 }; }
   function cupPos(g, cupId, S) {
-    const { W, H } = S, gap = Math.min(W * 0.3, 130), base = H * 0.62;
-    let slot = g.slots.indexOf(cupId), x = W / 2 + (slot - 1) * gap, y = base;
+    const { gap, base } = cupLayout(g, S), sx = i => S.W / 2 + (i - (g.n - 1) / 2) * gap;
+    let slot = g.slots.indexOf(cupId), x = sx(slot), y = base;
     if (g.cur) {
-      const [a, b] = g.cur.pair, e = 0.5 - Math.cos(g.cur.u * Math.PI) / 2;
-      if (slot === a || slot === b) {
-        const other = slot === a ? b : a, x2 = W / 2 + (other - 1) * gap;
-        x = x + (x2 - x) * e; y = base + Math.sin(e * Math.PI) * (slot === a ? -28 : 22);
-      }
+      const e = 0.5 - Math.cos(g.cur.u * Math.PI) / 2;
+      g.cur.pairs.forEach(([a, b], k) => {
+        if (slot !== a && slot !== b) return;
+        const other = slot === a ? b : a;
+        x = x + (sx(other) - x) * e; y = base + Math.sin(e * Math.PI) * (slot === a ? (k ? -18 : -28) : (k ? 14 : 22));
+      });
     }
     return { x, y };
   }
   function tapCups(g, px, py, S) {
     if (g.phase !== 'pick' || g.over) return;
-    let hit = -1;
-    for (let id = 0; id < 3; id++) { const p = cupPos(g, id, S); if (Math.abs(px - p.x) < 52 && py > p.y - 120 && py < p.y + 20) hit = id; }
+    const { sc } = cupLayout(g, S);
+    let hit = -1, bestD = 1e9;
+    for (let id = 0; id < g.n; id++) { const p = cupPos(g, id, S), d = Math.abs(px - p.x); if (d < 46 * sc + 8 && py > p.y - 120 * sc && py < p.y + 20 && d < bestD) { hit = id; bestD = d; } }
     if (hit < 0) return;
     g.pick = hit; g.phase = 'reveal'; g.t = 1.4;
     if (hit === g.treat) { g.score++; g.msg = '찾았다! 냠냠'; sfx('chime'); face('happy'); setTimeout(() => sfx('meow', 'happy', 0.6), 200); }
@@ -641,9 +652,9 @@
     for (let x = cx0 + 10; x < cx0 + cw - 8; x += 7) { g.strokeStyle = '#f6c43a'; g.lineWidth = 2; g.beginPath(); g.moveTo(x, cy0 + ch); g.lineTo(x + 1, cy0 + ch + 9); g.stroke(); }
     g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(0, top + H * 0.33, W, H);
   }
-  function drawCup(ctx, x, y, up, hue) {
-    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(x, y + 3, 44 - up * 0.15, 9, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.save(); ctx.translate(x, y - up);
+  function drawCup(ctx, x, y, up, hue, sc = 1) {
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(x, y + 3, (44 - up * 0.15) * sc, 9 * sc, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.save(); ctx.translate(x, y - up * sc); ctx.scale(sc, sc);
     const body = lg(ctx, -46, 0, 46, 0, [[0, hue[2]], [0.3, hue[0]], [0.55, hue[1]], [1, hue[2]]]);
     ctx.fillStyle = body; ctx.beginPath(); ctx.moveTo(-45, -4); ctx.lineTo(-31, -100); ctx.quadraticCurveTo(0, -108, 31, -100); ctx.lineTo(45, -4); ctx.closePath(); ctx.fill();
     // bottom of the cup (on top, as it is upside down)
@@ -670,7 +681,7 @@
     try {
       if (g.phase === 'reveal') { const tp = cupPos(g, g.treat, S); lookAtPt(cat.x + (tp.x - W / 2) / k, cat.gy + 6, 0.6); }
       else if (g.phase === 'shuffle') {
-        if (!g.peek || g.peek.until < t) g.peek = { id: Math.floor(Math.random() * 3), until: t + R(0.35, 0.8) };
+        if (!g.peek || g.peek.until < t || g.peek.id >= g.n) g.peek = { id: Math.floor(Math.random() * g.n), until: t + R(0.35, 0.8) };
         const pp = cupPos(g, g.peek.id, S); lookAtPt(cat.x + (pp.x - W / 2) / k, cat.gy + 6, 1);
       } else lookViewer(1);
     } catch (e) { /* */ }
@@ -679,7 +690,7 @@
     const treatP = cupPos(g, g.treat, S);
     if (g.lift[g.treat] > 0.05) {
       const x = treatP.x, y = treatP.y;
-      ctx.save(); ctx.translate(x, y - 10);
+      ctx.save(); ctx.translate(x, y - 10 * cupLayout(g, S).sc); ctx.scale(cupLayout(g, S).sc, cupLayout(g, S).sc);
       ctx.fillStyle = lg(ctx, -18, -8, 18, 8, [[0, '#ffc271'], [1, '#e8892f']]);
       ctx.beginPath(); ctx.ellipse(-2, 0, 17, 10, 0, 0, Math.PI * 2); ctx.fill();
       ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(26, -10); ctx.lineTo(23, 0); ctx.lineTo(26, 10); ctx.closePath(); ctx.fill();
@@ -689,8 +700,8 @@
       if (g.phase === 'reveal' && g.pick === g.treat) { ctx.fillStyle = '#fff1b0'; for (let i = 0; i < 6; i++) { const a = t * 2 + i, r = 30 + Math.sin(t * 5 + i) * 4; const sx2 = x + Math.cos(a) * r, sy2 = y - 18 + Math.sin(a) * r * 0.5; ctx.beginPath(); for (let j = 0; j < 8; j++) { const aa = j * Math.PI / 4, rr2 = j % 2 ? 1.5 : 4; ctx.lineTo(sx2 + Math.cos(aa) * rr2, sy2 + Math.sin(aa) * rr2); } ctx.fill(); } }
     }
     const HUES = [['#5ec8d6', '#bff0f5', '#26818f'], ['#ff8fb1', '#ffd3e1', '#c94f78'], ['#ffcf5c', '#fff0b8', '#c9921f']];
-    const order = [0, 1, 2].map(id => ({ id, p: cupPos(g, id, S) })).sort((a, b) => a.p.y - b.p.y);
-    for (const o of order) drawCup(ctx, o.p.x, o.p.y, g.lift[o.id] * 74, HUES[0]);   // all cups look the same, or the game would be too easy
+    const csc = cupLayout(g, S).sc, order = g.slots.map((_, id) => ({ id, p: cupPos(g, id, S) })).sort((a, b) => a.p.y - b.p.y);
+    for (const o of order) drawCup(ctx, o.p.x, o.p.y, g.lift[o.id] * 74, HUES[0], csc);   // all cups look the same, or the game would be too easy
     bubble(ctx, W / 2 - 140, H * 0.07 + 40, 280, 48, W / 2 - 40);
     ctx.fillStyle = '#5a3a5a'; ctx.font = '800 19px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(g.msg, W / 2, H * 0.07 + 71);
   }
