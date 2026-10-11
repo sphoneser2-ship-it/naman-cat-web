@@ -228,17 +228,17 @@
     if (Math.random() < 0.35) g.lastDir = -g.lastDir;
     g.cols.push(last + g.lastDir);
   }
-  function turnClimb(g) { if (g.over) return; g.dir = -g.dir; climb(g, g.dir); }
+  function turnClimb(g) { if (g.over) return; g.dir = -g.dir; g.turned = true; climb(g, g.dir); }
   function climb(g, d) {
     if (g.over) return;
     g.dir = d;
     const need = g.cols[g.pos + 1] - g.cols[g.pos];
     cat.dir = d;
-    if (d !== need) { g.fall = 0.01; sfx('thud'); face('wide', 'open1', 'flat'); gameOver(g.score, '계단에서 떨어졌어요!'); return; }
+    if (d !== need) { g.fall = 0.01; sfx('fall'); face('wide', 'open1', 'flat'); gameOver(g.score, '계단에서 떨어졌어요!'); return; }
     g.started = true; g.pos++; g.score = g.pos; g.hop = 1;
     g.gauge = Math.min(100, g.gauge + 10);
     while (g.cols.length < g.pos + 40) addStair(g);
-    sfx('patter'); if (g.score % 25 === 0) { sfx('sparkle'); face('happy'); }
+    sfx(g.turned ? 'turnStep' : 'step', g.score); g.turned = false; if (g.score % 25 === 0) { sfx('sparkle'); face('happy'); }
     setTop('무한의 계단', g.score);
   }
   function stepStairs(g, dt) {

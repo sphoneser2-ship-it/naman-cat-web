@@ -289,4 +289,50 @@
     if (document.visibilityState === 'hidden') lastHidden = Date.now();
     else if (lastHidden && Date.now() - lastHidden > 10 * 60000) setTimeout(() => { try { if (cat.visible && !cat.asleep) Snd.meow('trill', 0.7); } catch (e) { /* */ } }, 1200);
   });
+
+  /* ---------- a softer, real-sounding purr ----------
+     The old purr was noise wobbling at a steady 24 Hz, which sounded like a helicopter. A cat purrs in breaths:
+     a quieter purr breathing in, a short pause, a fuller purr breathing out, each made of soft rumbling pulses. */
+  let purrBuf = null, purrNode = null;
+  function makePurr() {
+    const sr = ctx.sampleRate, len = Math.round(sr * 2.5), b = ctx.createBuffer(1, len, sr), d = b.getChannelData(0);
+    let ph = 0, lp = 0;
+    for (let i = 0; i < len; i++) {
+      const t = i / sr;
+      let env = 0, rate = 25;
+      if (t < 0.95) { env = 0.5 * Math.sin(Math.PI * t / 0.95); rate = 23; }
+      else if (t >= 1.1 && t < 2.35) { env = Math.sin(Math.PI * (t - 1.1) / 1.25); rate = 26.5; }
+      ph += rate / sr; const p = ph % 1;
+      const pulse = Math.exp(-p * 6) * (1 - Math.exp(-p * 60));
+      lp += ((Math.random() * 2 - 1) - lp) * 0.08;               // pre-smoothed noise: a rumble, not a hiss
+      d[i] = lp * env * (0.2 + 0.8 * pulse) * 3;
+    }
+    return b;
+  }
+  Snd.setPurr = function (level) {
+    if (!ctx) return;
+    if (!Snd.on || ctx.state !== 'running') level = 0;
+    if (level > 0.01 && !purrNode) {
+      purrBuf = purrBuf || makePurr();
+      const s = ctx.createBufferSource(), lpF = ctx.createBiquadFilter(), hpF = ctx.createBiquadFilter(), g = ctx.createGain();
+      s.buffer = purrBuf; s.loop = true;
+      lpF.type = 'lowpass'; lpF.frequency.value = 320; lpF.Q.value = 0.6;
+      hpF.type = 'highpass'; hpF.frequency.value = 35;
+      g.gain.value = 0;
+      s.connect(lpF); lpF.connect(hpF); hpF.connect(g); g.connect(master); s.start();
+      purrNode = { s, g };
+    }
+    if (purrNode) {
+      purrNode.g.gain.setTargetAtTime(vol(Math.min(1, level) * 1.1), ctx.currentTime, 0.25);
+      if (level <= 0.01 && !purrNode.stopT) {
+        const pn = purrNode; pn.stopT = setTimeout(() => { if (purrNode === pn && pn.g.gain.value < 0.02) { try { pn.s.stop(); } catch (e) { /* */ } purrNode = null; } else pn.stopT = 0; }, 1500);
+      } else if (level > 0.01 && purrNode.stopT) { clearTimeout(purrNode.stopT); purrNode.stopT = 0; }
+    }
+  };
+
+  /* ---------- 무한의 계단: a little note for every step ---------- */
+  const SCALE = [523, 587, 659, 784, 880, 1047, 880, 784, 659, 587];   // a pentatonic walk up and down
+  Snd.step = function (n) { const f = SCALE[n % SCALE.length]; tone(f, 0.07, 0.07, 'triangle'); tone(f * 2, 0.04, 0.02, 'sine', 0.01); noise(0.02, 900, 1.5, 0.03, 'bandpass'); };
+  Snd.turnStep = function (n) { Snd.step(n); noise(0.08, 1400, 0.8, 0.05, 'bandpass', 0, 900); };
+  Snd.fall = function () { tone(700, 0.6, 0.09, 'triangle', 0, 120); noise(0.5, 800, 0.7, 0.06, 'bandpass', 0.1, -500); setTimeout(() => tone(110, 0.14, 0.25, 'sine', 0, 50), 620); };
 })();
