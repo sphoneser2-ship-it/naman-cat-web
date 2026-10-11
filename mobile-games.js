@@ -109,7 +109,7 @@
     el.querySelector('.gtitle').textContent = title || '놀이';
     el.querySelector('.gscore').textContent = score === undefined ? '' : '점수 ' + score;
     el.querySelector('.gbest').textContent = G.game ? '최고 ' + (best[G.game.id] || 0) : '';
-    el.querySelector('.glives').textContent = lives === undefined ? '' : '❤'.repeat(Math.max(0, lives)) + '♡'.repeat(Math.max(0, 3 - lives));
+    el.querySelector('.glives').textContent = lives === undefined ? '' : '❤'.repeat(Math.max(0, lives)) + '♡'.repeat(Math.max(0, ((G.game && G.game.maxLives) || 3) - lives));
   }
   function showMenu() {
     G.game = null; over.hidden = true; ctl.innerHTML = ''; menu.hidden = false;
@@ -323,9 +323,9 @@
      10 points two pairs sometimes swap at the same moment. CAP: 22 swaps, 0.2 s each, 5 cups. */
   const cupCount = sc => (sc >= 15 ? 5 : sc >= 6 ? 4 : 3);
   function newCups() {
-    const g = { kind: 'cups', score: 0, lives: 3, n: 0, slots: [], treat: 0, phase: 'show', t: 0, swaps: [], cur: null, lift: [], pick: -1, over: false, msg: '' };
+    const g = { kind: 'cups', score: 0, lives: 1, maxLives: 1, n: 0, slots: [], treat: 0, phase: 'show', t: 0, swaps: [], cur: null, lift: [], pick: -1, over: false, msg: '' };
     ctl.innerHTML = '';
-    setTop('야바위', 0, 3);
+    setTop('야바위', 0, 1);
     startRound(g);
     return g;
   }
