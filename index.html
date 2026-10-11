@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>나만 없어 고양이</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#efe6da">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="나만 없어 고양이">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css?v=202610110914">
+<link rel="stylesheet" href="mobile.css?v=202610110914">
+</head>
+<body>
+<canvas id="stage" aria-label="바탕화면을 돌아다니는 고양이"></canvas>
+<div id="bubbles" aria-hidden="true"></div>
+
+<div id="dock" class="collapsed">
+  <button id="dockTab" data-hit type="button" aria-label="고양이 돌보기 열기">
+    <span class="ic" data-icon="paw"></span><span id="tabBadge" hidden></span>
+  </button>
+  <section id="panel" data-hit aria-label="고양이 돌보기">
+    <header>
+      <b id="dName">보리</b><span id="dClock">낮</span><span id="dMood" hidden></span>
+      <button id="bGear" type="button" class="gear" aria-label="설정"><span class="ic" data-icon="gear"></span></button>
+    </header>
+    <p id="dAge"></p>
+    <p id="dStatus"></p>
+    <ul class="meters">
+      <li><span>배부름</span><div class="bar" id="mSat"></div></li>
+      <li><span>애정</span><div class="bar" id="mLove"></div></li>
+      <li><span>재미</span><div class="bar" id="mFun"></div></li>
+      <li><span>방 청결</span><div class="bar" id="mClean"></div></li>
+    </ul>
+    <div class="btns">
+      <button id="bKibble" type="button"><span class="ic" data-icon="kibble"></span>사료</button>
+      <button id="bChuru" type="button"><span class="ic" data-icon="churu"></span>츄르</button>
+      <button id="bWand" type="button" data-mode="wand" aria-pressed="false"><span class="ic" data-icon="wand"></span>낚싯대</button>
+      <button id="bLaser" type="button" data-mode="laser" aria-pressed="false"><span class="ic" data-icon="laser"></span>레이저</button>
+      <button id="bToys" type="button" aria-pressed="false"><span class="ic" data-icon="ball"></span>장난감</button>
+    </div>
+    <div class="btns" id="btns2">
+      <button id="bBrush" type="button" data-mode="brush" aria-pressed="false"><span class="ic" data-icon="brush"></span>빗질</button>
+      <button id="bNip" type="button"><span class="ic" data-icon="nip"></span>캣닢</button>
+      <button id="bStyle" type="button" aria-pressed="false"><span class="ic" data-icon="style"></span>꾸미기</button>
+      <button id="bFurn" type="button" aria-pressed="false"><span class="ic" data-icon="furn"></span>가구</button>
+      <button id="bDiary" type="button" aria-pressed="false"><span class="ic" data-icon="diary"></span>일기</button>
+    </div>
+    <section id="sheet" hidden>
+      <div id="toysView" hidden>
+        <p class="sh">장난감 <span id="toyCount"></span></p><div id="toyChips" class="chips"></div>
+        <p class="hint">고양이가 가끔 새 장난감을 물어다 줘요.</p>
+      </div>
+      <div id="furnView" hidden>
+        <p class="sh">내 가구 <span id="furnCount"></span> (눌러서 꺼내거나 치워요)</p><div id="furnChips" class="chips"></div>
+        <p class="sh">기본 가구</p><div id="baseChips" class="chips"></div>
+        <p class="sh">밥그릇 스킨</p><div id="skinBowl" class="chips"></div>
+        <p class="sh">물그릇 스킨</p><div id="skinWater" class="chips"></div>
+        <p class="sh">화장실 스킨</p><div id="skinLitter" class="chips"></div>
+        <p class="sh">침대 스킨</p><div id="skinBed" class="chips"></div>
+        <p class="hint">새 가구와 스킨은 고양이가 선물로 가져와요.</p>
+      </div>
+      <div id="styleView" hidden>
+        <p class="sh">목걸이</p><div id="collarChips" class="chips"></div>
+        <p class="sh">모자·장식</p><div id="hatChips" class="chips"></div>
+      </div>
+      <div id="diaryView" hidden>
+        <div class="dnav"><button id="diaryPrev" type="button">◀</button><b id="diaryDate"></b><button id="diaryNext" type="button">▶</button></div>
+        <ul id="diaryText"></ul>
+      </div>
+    </section>
+    <p class="tip">쓰다듬기: 마우스를 고양이 위에서 천천히 움직여요. 똥은 눌러서 치워요. 파일을 고양이에게 끌어다 놓으면 선물이 돼요. 밥그릇·물그릇·화장실·침대는 오른쪽 클릭하면 스킨을 바꿀 수 있어요.</p>
+    <div id="menu" hidden>
+      <button id="mSound" type="button">소리</button>
+      <button id="mSize" type="button">크기</button>
+      <button id="mPass" type="button" aria-pressed="false">클릭 통과 전용</button>
+      <button id="mFs" type="button" aria-pressed="true">전체 화면에서 숨기기</button>
+      <button id="mBehind" type="button" aria-pressed="false">창 뒤로 숨기기</button>
+      <button id="mAuto" type="button" aria-pressed="false">자동 실행</button>
+      <button id="mQuiet" type="button" aria-pressed="false">조용히 있기</button>
+      <button id="mRoam" type="button" aria-pressed="true">다른 모니터 가보기</button>
+      <button id="mNew" type="button">다른 고양이 입양</button>
+      <button id="mQuit" type="button" class="danger">종료</button>
+    </div>
+  </section>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="skinMenu" data-hit hidden><b id="smTitle"></b><div id="smChips" class="chips"></div><p id="smHint" class="hint" hidden></p></div>
+<div id="banner" hidden><b id="bnTitle"></b><span id="bnText"></span></div>
+
+<div id="adopt" hidden>
+  <div class="card" data-hit>
+    <h1>고양이 입양소</h1>
+    <canvas id="adCanvas" width="130" height="100" aria-hidden="true"></canvas>
+    <p id="adText"></p>
+    <label id="adName" hidden>이름 <input id="nameInput" type="text" maxlength="8" autocomplete="off"></label>
+    <div class="adrow">
+      <button id="adCancel" type="button" class="ghost" hidden>취소</button>
+      <button id="adAgain" type="button" class="ghost" hidden>다시 뽑기</button>
+      <button id="adBtn" type="button">입양하기</button>
+    </div>
+  </div>
+</div>
+
+<script src="mobile-host.js?v=202610110914"></script>
+<script src="js/01-core.js?v=202610110914"></script>
+<script src="js/02-audio.js?v=202610110914"></script>
+<script src="js/03-art.js?v=202610110914"></script>
+<script src="js/03b-render.js?v=202610110914"></script>
+<script src="js/03c-outfit.js?v=202610110914"></script>
+<script src="js/04-world.js?v=202610110914"></script>
+<script src="js/05-cat.js?v=202610110914"></script>
+<script src="js/05b-desk.js?v=202610110914"></script>
+<script src="js/06-behaviors.js?v=202610110914"></script>
+<script src="js/06b-life.js?v=202610110914"></script>
+<script src="js/06c-motions.js?v=202610110914"></script>
+<script src="js/06d-reactions.js?v=202610110914"></script>
+<script src="js/06e-monitors.js?v=202610110914"></script>
+<script src="js/07-interact.js?v=202610110914"></script>
+<script src="js/07b-tools.js?v=202610110914"></script>
+<script src="js/07c-toys.js?v=202610110914"></script>
+<script src="js/08-draw.js?v=202610110914"></script>
+<script src="js/08b-props.js?v=202610110914"></script>
+<script src="js/08c-extras.js?v=202610110914"></script>
+<script src="js/08d-skins.js?v=202610110914"></script>
+<script src="js/11-furniture.js?v=202610110914"></script>
+<script src="js/06f-unlocks.js?v=202610110914"></script>
+<script src="js/09b-diary.js?v=202610110914"></script>
+<script src="js/09-main.js?v=202610110914"></script>
+<script src="mobile-after.js?v=202610110914"></script>
+<script src="mobile-sound.js?v=202610110914"></script>
+<script src="mobile-room.js?v=202610110914"></script>
+<script src="mobile-furniture.js?v=202610110914"></script>
+<script src="mobile-scenes.js?v=202610110914"></script>
+<script src="mobile-life.js?v=202610110914"></script>
+<script src="mobile-extras.js?v=202610110914"></script>
+<script src="mobile-games.js?v=202610110914"></script>
+<script>window.__BUILD='202610110914';
+if ('serviceWorker' in navigator && location.protocol === 'https:' && !window.NamanAndroid && !/claude|claudeusercontent/.test(location.hostname)) navigator.serviceWorker.register('sw.js').catch(() => {});</script>
+</body>
+</html>
