@@ -109,3 +109,18 @@ input { font-size: 16px; } /* keeps iOS from zooming into the name field */
 #games .gquit { position: absolute; right: 60px; top: max(14px, env(safe-area-inset-top)); height: 34px; padding: 0 12px; border: 0; border-radius: 999px; background: rgba(255,255,255,.92); color: #e24a5a; font: 800 13px system-ui, sans-serif; box-shadow: 0 2px 0 rgba(0,0,0,.12); }
 #games .gquit[hidden] { display: none; }
 #games .gtop { right: 150px; }
+
+/* friends' ranking */
+#games .grankbtn, #games .gpost { min-height: 50px; border: 0; border-radius: 14px; background: #ffcf5c; color: #3a2f5a; font: 800 16px system-ui, sans-serif; box-shadow: 0 3px 0 rgba(90,60,120,.15); }
+#games .gpost { width: 100%; margin: 0 0 10px; background: #ffe7a3; } #games .gpost.done { background: #d9f3dc; }
+#games .grank { display: grid; gap: 10px; }
+#games .grtabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+#games .grtab { min-height: 40px; border: 0; border-radius: 12px; background: rgba(255,255,255,.7); color: #3a2f5a; font: 700 13px system-ui, sans-serif; }
+#games .grtab.on { background: #fff; box-shadow: 0 3px 0 rgba(90,60,120,.18); }
+#games .grlist { background: rgba(255,255,255,.94); border-radius: 16px; padding: 6px 10px; max-height: calc(100vh - 260px); overflow-y: auto; color: #3a2f5a; }
+#games .grlist ol { list-style: none; margin: 0; padding: 0; }
+#games .grlist li { display: grid; grid-template-columns: 34px 1fr auto 40px; align-items: center; gap: 6px; padding: 9px 2px; border-bottom: 1px solid #f0ebf8; font-size: 15px; }
+#games .grlist li:last-child { border-bottom: 0; }
+#games .grlist li.me { background: #fff6d8; border-radius: 10px; }
+#games .grn { text-align: center; font-weight: 800; color: #7a6f99; } #games .grs { font-weight: 900; color: #e8a33a; } #games .grlist small { color: #9a90b5; font-size: 11px; text-align: right; }
+#games .grmsg { text-align: center; color: #7a6f99; padding: 24px 8px; margin: 0; }

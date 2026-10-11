@@ -13,6 +13,22 @@
   let best = {};
   try { best = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { best = {}; }
   const saveBest = () => { try { localStorage.setItem(KEY, JSON.stringify(best)); } catch (e) { /* */ } };
+
+  /* ---------- friends' ranking (web only): a Google Sheet behind an Apps Script web app (see rank/Code.gs) ---------- */
+  const RANK_URL = window.NAMAN_RANK_URL || '';
+  const rankOn = () => !!RANK_URL && !window.NamanAndroid && navigator.onLine !== false;
+  let rankDev = '';
+  try { rankDev = localStorage.getItem('naman.mobile.rankDev') || ''; if (!rankDev) { rankDev = Math.random().toString(36).slice(2, 10); localStorage.setItem('naman.mobile.rankDev', rankDev); } } catch (e) { rankDev = Math.random().toString(36).slice(2, 10); }
+  const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  async function rankFetch(body) {
+    const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+    const tm = setTimeout(() => ctl && ctl.abort(), 12000);
+    try {
+      const r = await fetch(RANK_URL, body ? { method: 'POST', body: JSON.stringify(body), signal: ctl && ctl.signal } : { signal: ctl && ctl.signal });
+      return await r.json();
+    } catch (e) { return { ok: false, error: '인터넷 연결을 확인해 주세요' }; }
+    finally { clearTimeout(tm); }
+  }
   const rr = (g, x, y, w, h, r) => { r = Math.min(r, w / 2, h / 2); g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
   const ell = (g, x, y, rx, ry, c) => { g.beginPath(); g.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, Math.PI * 2); g.fillStyle = c; g.fill(); };
 
@@ -80,7 +96,7 @@
   el.querySelector('.gclose').addEventListener('click', () => {
     const g = G.game;
     if (g && !g.over) quitGame();
-    else if (g) showMenu();
+    else if (g || menu.querySelector('.grank')) showMenu();
     else closeGames();
   });
 
@@ -100,6 +116,33 @@
     setTop(A.catName() + '와 놀기');
     menu.innerHTML = GAMES.map(g => `<button type="button" class="gcard" data-g="${g.id}"><span class="gi">${g.icon}</span><span class="gn"><b>${g.name}</b><small>${g.desc}</small></span><span class="gb">최고<br><b>${best[g.id] || 0}</b></span></button>`).join('');
     for (const b of menu.querySelectorAll('.gcard')) b.onclick = () => startGame(b.dataset.g);
+    if (rankOn()) {
+      const rb = document.createElement('button'); rb.type = 'button'; rb.className = 'grankbtn'; rb.innerHTML = '🏆 친구들 순위 보기';
+      rb.onclick = () => showRank('flags'); menu.appendChild(rb);
+    }
+  }
+  let rankBoards = null, rankAt = 0;
+  async function showRank(id, force) {
+    G.game = null; over.hidden = true; ctl.innerHTML = ''; menu.hidden = false;
+    setTop('친구들 순위');
+    const tabs = GAMES.map(g => `<button type="button" class="grtab${g.id === id ? ' on' : ''}" data-g="${g.id}">${g.icon} ${g.name}</button>`).join('');
+    const paint = body => {
+      menu.innerHTML = `<div class="grank"><div class="grtabs">${tabs}</div><div class="grlist">${body}</div>
+        <div class="grow"><button type="button" data-a="re">새로고침</button><button type="button" data-a="back">놀이 목록</button></div></div>`;
+      for (const b of menu.querySelectorAll('.grtab')) b.onclick = () => showRank(b.dataset.g);
+      menu.querySelector('[data-a=re]').onclick = () => showRank(id, true);
+      menu.querySelector('[data-a=back]').onclick = () => showMenu();
+    };
+    if (!rankBoards || force || performance.now() - rankAt > 30000) {
+      paint('<p class="grmsg">불러오는 중…</p>');
+      const r = await rankFetch();
+      if (!G.open || !menu.querySelector('.grank')) return;
+      if (!r || !r.ok) { paint(`<p class="grmsg">${esc((r && r.error) || '순위를 불러오지 못했어요')}</p>`); return; }
+      rankBoards = r.boards || {}; rankAt = performance.now();
+    }
+    const list = rankBoards[id] || [], me = rankDev.slice(0, 3), myName = A.catName();
+    paint(list.length ? '<ol>' + list.map((x, i) => `<li class="${x.dev === me && x.name === myName ? 'me' : ''}"><span class="grn">${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span><b>${esc(x.name)}</b><span class="grs">${x.score}</span><small>${esc(x.at || '')}</small></li>`).join('') + '</ol>'
+      : '<p class="grmsg">아직 아무도 없어요. 첫 기록의 주인공이 되어 보세요!</p>');
   }
   function startGame(id) {
     menu.hidden = true; over.hidden = true;
@@ -121,7 +164,15 @@
       over.hidden = false;
       over.innerHTML = `<div class="gobox"><p class="gwhy">${why || ''}</p><p class="gsc">${score}<small>점</small></p>
         <p class="grec">${record ? '🎉 새 최고 기록!' : '최고 기록 ' + prev + '점'}</p>
+        ${record && rankOn() ? '<button type="button" class="gpost">🏆 친구들 순위에 올리기</button>' : ''}
         <div class="grow"><button type="button" data-a="again">다시 하기</button><button type="button" data-a="menu">놀이 목록</button></div></div>`;
+      const pb = over.querySelector('.gpost');
+      if (pb) pb.onclick = async () => {
+        pb.disabled = true; pb.textContent = '올리는 중…';
+        const r = await rankFetch({ game: g.id, name: A.catName(), score, sec: Math.round(g.sec || 0), dev: rankDev });
+        if (r && r.ok) { rankBoards = null; pb.textContent = r.rank ? `🎉 친구들 중 ${r.rank}등!` : '올렸어요! (아직 20등 밖)'; pb.classList.add('done'); }
+        else { pb.disabled = false; pb.textContent = '다시 올리기 · ' + ((r && r.error) || '실패'); }
+      };
       over.querySelector('[data-a=again]').onclick = () => startGame(g.id);
       over.querySelector('[data-a=menu]').onclick = () => showMenu();
       setTop(GAMES.find(x => x.id === g.id).name, score);
@@ -660,7 +711,7 @@
     if (cv.width !== Math.round(S.W * S.dpr) || cv.height !== Math.round(S.H * S.dpr)) { cv.width = Math.round(S.W * S.dpr); cv.height = Math.round(S.H * S.dpr); }
     const ctx = cv.getContext('2d'); ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
     const g = G.game, t = ts / 1000;
-    if (g && !g.over) G.played += dt;
+    if (g && !g.over) { G.played += dt; g.sec = (g.sec || 0) + dt; }
     if (!g) {
       const bg = ctx.createLinearGradient(0, 0, 0, S.H); bg.addColorStop(0, '#ffe9f1'); bg.addColorStop(1, '#e3f0ff');
       ctx.fillStyle = bg; ctx.fillRect(0, 0, S.W, S.H);
