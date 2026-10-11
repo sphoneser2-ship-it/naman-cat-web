@@ -185,7 +185,13 @@
     const baseSet = setSkin;
     const fixWater = () => {
       if (!clash(Skin.bowl, Skin.water)) return false;
-      const ok = Object.keys(SKINS.water).find(k => ownsSkin('water', k) && !clash(Skin.bowl, k)) || 'default';
+      let ok = Object.keys(SKINS.water).find(k => ownsSkin('water', k) && !clash(Skin.bowl, k));
+      if (!ok) {
+        // nothing owned fits (e.g. only the basic blue one next to a blue food bowl): the cat gets a spare water bowl
+        ok = ['mint', 'silver', 'coral', 'lemon', 'grape', 'wood'].find(k => SKINS.water[k] && !clash(Skin.bowl, k)) || Object.keys(SKINS.water).find(k => !clash(Skin.bowl, k));
+        if (!ok) return false;
+        try { Unlocks.have.add('skin:water:' + ok); saveUnlocks(); } catch (e) { /* */ }
+      }
       baseSet('water', ok);
       return true;
     };
