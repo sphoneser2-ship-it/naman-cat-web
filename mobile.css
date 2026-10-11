@@ -124,3 +124,11 @@ input { font-size: 16px; } /* keeps iOS from zooming into the name field */
 #games .grlist li.me { background: #fff6d8; border-radius: 10px; }
 #games .grn { text-align: center; font-weight: 800; color: #7a6f99; } #games .grs { font-weight: 900; color: #e8a33a; } #games .grlist small { color: #9a90b5; font-size: 11px; text-align: right; }
 #games .grmsg { text-align: center; color: #7a6f99; padding: 24px 8px; margin: 0; }
+
+/* 청기백기: buttons that trade places from 20 points */
+#games .grow2.flags .gbtn:nth-child(1) { order: 1; } #games .grow2.flags .gbtn:nth-child(2) { order: 2; }
+#games .grow2.flags .gbtn:nth-child(3) { order: 3; } #games .grow2.flags .gbtn:nth-child(4) { order: 4; }
+#games .grow2.flags.swap .gbtn:nth-child(1) { order: 2; } #games .grow2.flags.swap .gbtn:nth-child(2) { order: 1; }
+#games .grow2.flags.swap .gbtn:nth-child(3) { order: 4; } #games .grow2.flags.swap .gbtn:nth-child(4) { order: 3; }
+#games .grow2.flags.wiggle { animation: gwig .35s ease; }
+@keyframes gwig { 0%,100% { transform: none; } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }

@@ -187,20 +187,20 @@
   /* ================= 청기백기 =================
      CAP: the time per command never drops below 1.3 s (1.8 s for two moves), and the tricky
      "don't" / "A 말고 B" commands only appear from score 5 / 15 on. */
-  function speak(text) {
+  function speak(text, lvl = 0) {
     try {
       if (!window.speechSynthesis || !Snd.on) return;
       const vs = window.speechSynthesis.getVoices().filter(v => /^ko/i.test(v.lang));
       if (!vs.length) return;
-      const u = new SpeechSynthesisUtterance(text); u.voice = vs[0]; u.lang = 'ko-KR'; u.rate = 1.15; u.pitch = 1.3;
+      const u = new SpeechSynthesisUtterance(text); u.voice = vs[0]; u.lang = 'ko-KR'; u.rate = 1.15 + Math.min(0.5, lvl * 0.015); u.pitch = 1.3;
       window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);
     } catch (e) { /* no voice */ }
   }
   function newFlags() {
     const g = { kind: 'flags', score: 0, lives: 3, b: false, w: false, ab: 0, aw: 0, cmd: null, t: 0, gap: 0.8, flash: null, over: false };
     ctl.innerHTML = '';
-    const row1 = document.createElement('div'); row1.className = 'grow2';
-    ctl.appendChild(row1);
+    const row1 = document.createElement('div'); row1.className = 'grow2 flags';
+    ctl.appendChild(row1); g.row = row1;
     const mk = (label, cls, f, up) => { const b = btn(label, cls, () => press(g, f, up)); row1.appendChild(b); };
     mk('청기<br>올려 ▲', 'blue', 'b', true); mk('백기<br>올려 ▲', 'white', 'w', true);
     mk('청기<br>내려 ▼', 'blue', 'b', false); mk('백기<br>내려 ▼', 'white', 'w', false);
@@ -208,6 +208,10 @@
     return g;
   }
   const FN = { b: '청기', w: '백기' };
+  /* 청기백기 levels (each adds a new kind of trick; the timer keeps shrinking):
+     5 하지 마 · 8 두 개 동시 · 10 이미 그런 깃발 (가만히) · 15 A 말고 B · 18 둘 다 하지 마 · 20 버튼 자리 바꾸기
+     CAP: 0.95 s for one flag, 1.35 s for two, 1.0 s to hold still (reached around 30 points) */
+  const FLAG_LEVELS = [[5, '함정 등장! "하지 마"'], [8, '두 개를 한 번에!'], [10, '이미 그렇다면 가만히!'], [15, '"말고"를 잘 들어요!'], [18, '둘 다 하지 마!'], [20, '버튼 자리가 바뀌어요!'], [30, '최고 속도!']];
   function nextCmd(g) {
     const s = g.score, cur = { b: g.b, w: g.w };
     const verb = (f, up) => FN[f] + (up ? ' 올려' : ' 내려');
@@ -215,23 +219,30 @@
     const f1 = Math.random() < 0.5 ? 'b' : 'w', f2 = f1 === 'b' ? 'w' : 'b';
     const r = Math.random();
     let cmd;
-    if (s >= 15 && r < 0.25) {          // "A 말고 B": only B moves
+    if (s >= 18 && r < 0.1) {          // "A 하지 말고 B 하지 마": nothing moves
+      const up1 = flip(f1), up2 = flip(f2);
+      cmd = { text: FN[f1] + (up1 ? ' 올리지 말고 ' : ' 내리지 말고 ') + FN[f2] + (up2 ? ' 올리지 마' : ' 내리지 마'), target: { b: cur.b, w: cur.w }, wait: true, moves: 0 };
+    } else if (s >= 15 && r < 0.3) {   // "A 말고 B": only B moves
       const up1 = flip(f1), up2 = flip(f2);
       cmd = { text: FN[f1] + (up1 ? ' 올리지 말고 ' : ' 내리지 말고 ') + verb(f2, up2), target: { [f1]: cur[f1], [f2]: up2 }, wait: false, moves: 1 };
-    } else if (s >= 8 && r < 0.5) {     // two moves at once
+    } else if (s >= 10 && r < 0.42) {  // the flag is already that way: hold still
+      cmd = { text: verb(f1, cur[f1]), target: { b: cur.b, w: cur.w }, wait: true, moves: 0 };
+    } else if (s >= 8 && r < 0.62) {   // two moves at once
       const up1 = flip(f1), up2 = flip(f2);
       cmd = { text: FN[f1] + (up1 ? ' 올리고 ' : ' 내리고 ') + verb(f2, up2), target: { [f1]: up1, [f2]: up2 }, wait: false, moves: 2 };
-    } else if (s >= 5 && r < 0.72) {    // "don't"
+    } else if (s >= 5 && r < 0.8) {    // "don't"
       const up = flip(f1);
       cmd = { text: FN[f1] + (up ? ' 올리지 마' : ' 내리지 마'), target: { b: cur.b, w: cur.w }, wait: true, moves: 0 };
     } else {
       const up = flip(f1);
       cmd = { text: verb(f1, up), target: { [f1]: up, [f2]: cur[f2] }, wait: false, moves: 1 };
     }
-    cmd.limit = Math.max(cmd.moves === 2 ? 1.8 : 1.3, (cmd.moves === 2 ? 3.6 : 3.0) - s * 0.06);
-    if (cmd.wait) cmd.limit = Math.max(1.4, 2.4 - s * 0.03);
+    cmd.limit = cmd.moves === 2 ? Math.max(1.35, 3.6 - s * 0.075) : Math.max(0.95, 3.0 - s * 0.07);
+    if (cmd.wait) cmd.limit = Math.max(1.0, 2.4 - s * 0.045);
     cmd.left = cmd.limit;
-    g.cmd = cmd; speak(cmd.text);
+    // from 20 points the blue and white buttons sometimes trade places (the labels move with them)
+    if (g.row) { const want = s >= 20 && Math.random() < 0.3 ? !g.row.classList.contains('swap') : g.row.classList.contains('swap'); if (want !== g.row.classList.contains('swap')) { g.row.classList.toggle('swap', want); g.row.classList.remove('wiggle'); void g.row.offsetWidth; g.row.classList.add('wiggle'); } }
+    g.cmd = cmd; speak(cmd.text, s);
     face('open');
   }
   function press(g, f, up) {
@@ -244,7 +255,11 @@
   }
   function judge(g, ok, why) {
     const c = g.cmd; g.cmd = null;
-    if (ok) { g.score++; sfx('pop'); face('happy'); g.flash = { ok: true, t: 0.5, text: '딩동댕!' }; g.gap = 0.45; }
+    if (ok) {
+      g.score++; sfx('pop'); face('happy'); g.flash = { ok: true, t: 0.5, text: '딩동댕!' }; g.gap = 0.45;
+      const lv = FLAG_LEVELS.find(l => l[0] === g.score);
+      if (lv) { g.flash = { ok: true, t: 1.3, text: lv[1], level: true }; g.gap = 1.3; sfx('chime'); }
+    }
     else {
       g.lives--; sfx('thud'); face('annoyed', 'closed', 'flat'); g.flash = { ok: false, t: 0.9, text: why || '땡!' }; g.gap = 0.9;
       g.b = c.target.b; g.w = c.target.w;          // show how it should have been
@@ -452,7 +467,7 @@
       ctx.textAlign = 'center';
     } else ctx.fillText(text, cx, by + 48);
     if (g.cmd) { const u = clampN(g.cmd.left / g.cmd.limit, 0, 1); ctx.fillStyle = '#eef2f8'; rr(ctx, bx + 22, by + 62, bw - 44, 8, 4); ctx.fill(); ctx.fillStyle = lg(ctx, bx, 0, bx + bw, 0, [[0, u > 0.35 ? '#6fd28a' : '#ff9a6a'], [1, u > 0.35 ? '#3fb36a' : '#e24a5a']]); rr(ctx, bx + 22, by + 62, (bw - 44) * u, 8, 4); ctx.fill(); }
-    if (g.flash) { ctx.globalAlpha = clampN(g.flash.t * 2, 0, 1); ctx.font = '900 54px system-ui, sans-serif'; ctx.fillStyle = g.flash.ok ? '#3fb36a' : '#e24a5a'; ctx.fillText(g.flash.ok ? '⭕' : '❌', cx, feet - k * 30); ctx.globalAlpha = 1; }
+    if (g.flash) { ctx.globalAlpha = clampN(g.flash.t * 2, 0, 1); ctx.font = '900 54px system-ui, sans-serif'; ctx.fillStyle = g.flash.ok ? '#3fb36a' : '#e24a5a'; ctx.fillText(g.flash.level ? '⭐' : g.flash.ok ? '⭕' : '❌', cx, feet - k * 30); ctx.globalAlpha = 1; }
   }
 
   /* ---------- 무한의 계단: a long trip upward ----------
