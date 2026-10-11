@@ -332,7 +332,14 @@
 
   /* ---------- 무한의 계단: a little note for every step ---------- */
   const SCALE = [523, 587, 659, 784, 880, 1047, 880, 784, 659, 587];   // a pentatonic walk up and down
-  Snd.step = function (n) { const f = SCALE[n % SCALE.length]; tone(f, 0.07, 0.07, 'triangle'); tone(f * 2, 0.04, 0.02, 'sine', 0.01); noise(0.02, 900, 1.5, 0.03, 'bandpass'); };
-  Snd.turnStep = function (n) { Snd.step(n); noise(0.08, 1400, 0.8, 0.05, 'bandpass', 0, 900); };
-  Snd.fall = function () { tone(700, 0.6, 0.09, 'triangle', 0, 120); noise(0.5, 800, 0.7, 0.06, 'bandpass', 0.1, -500); setTimeout(() => tone(110, 0.14, 0.25, 'sine', 0, 50), 620); };
+  /* loud on purpose: a bit above a normal meow (the user turns the phone down if it is too much) */
+  Snd.step = function (n) {
+    const f = SCALE[n % SCALE.length];
+    tone(f, 0.16, 0.68, 'triangle');                 // the note
+    tone(f * 2, 0.1, 0.22, 'sine', 0.005);           // a bright top so it cuts through on phone speakers
+    tone(190, 0.07, 0.5, 'sine', 0, 95);            // a soft paw thump
+    noise(0.035, 1300, 1.2, 0.26, 'bandpass');       // the tap of the step
+  };
+  Snd.turnStep = function (n) { Snd.step(n); noise(0.12, 1400, 0.8, 0.4, 'bandpass', 0, 1100); };
+  Snd.fall = function () { tone(700, 0.6, 0.36, 'triangle', 0, 120); noise(0.5, 800, 0.7, 0.24, 'bandpass', 0.1, -500); setTimeout(() => tone(110, 0.18, 0.6, 'sine', 0, 50), 620); };
 })();
