@@ -179,8 +179,14 @@
 
   /* ---------- the water bowl never looks like the food bowl ---------- */
   try {
-    const rgb = h => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
-    const near = (a, b) => { const A = rgb(a), B = rgb(b); return Math.hypot(A[0] - B[0], A[1] - B[1], A[2] - B[2]) < 90; };
+    // colours are compared the way eyes see them (CIE Lab), so red next to coral or pink next to coral count as "the same"
+    const lab = h => {
+      const [r, g, b] = [1, 3, 5].map(i => parseInt(h.substr(i, 2), 16) / 255).map(c => (c > 0.04045 ? ((c + 0.055) / 1.055) ** 2.4 : c / 12.92));
+      const x = (r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047, y = r * 0.2126 + g * 0.7152 + b * 0.0722, z = (r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883;
+      const f = t => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+      return [116 * f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z))];
+    };
+    const near = (a, b) => { const A = lab(a), B = lab(b); return Math.hypot(A[0] - B[0], A[1] - B[1], A[2] - B[2]) < 40; };
     const clash = (bowlKey, waterKey) => near((SKINS.bowl[bowlKey] || SKINS.bowl.default).body, (SKINS.water[waterKey] || SKINS.water.default).body);
     const baseSet = setSkin;
     const fixWater = () => {

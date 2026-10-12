@@ -303,7 +303,7 @@
   }
 
   /* ---------- painting entry points (called by mobile-room.js) ---------- */
-  window.__roomFloorDepth = 40;          // the cat walks in front of the furniture
+  window.__roomFloorDepth = 30;          // the cat's paws stop at the same line as the sofa and TV cabinet legs (baseY = floorY + 36; paws sit ~6 px below gy)
   window.__roomDecor = function (g, lay, sky, h) {
     const f = G(), B = broken(), night = sky.night;
     if (B.rugFlip) drawRugFlip(g, f, B.rugFlip.side || 1);

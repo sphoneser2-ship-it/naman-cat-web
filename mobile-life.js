@@ -524,12 +524,12 @@
       const z = F.zones(), pulse = 0.5 + 0.5 * Math.sin(ts / 180);
       for (const k in z) {
         const r = z[k];
-        g.strokeStyle = `rgba(255,226,110,${0.55 + 0.4 * pulse})`; g.lineWidth = 3; g.setLineDash([7, 5]);
-        window.__room.roundRect(g, r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0, 12); g.stroke(); g.setLineDash([]);
-        g.fillStyle = `rgba(255,240,170,${0.12 + 0.1 * pulse})`; g.fill();
+        // no box around broken things (it looked odd); only a small count once you start fixing one
         const need = EVENTS[k].taps, got = fxs.taps[k] || 0;
-        g.fillStyle = '#ffffff'; g.font = '700 13px system-ui, sans-serif'; g.textAlign = 'center';
-        g.fillText(need > 1 ? `톡톡 ${got}/${need}` : '톡!', r.cx, r.y0 - 6);
+        if (need > 1 && got > 0) {
+          g.font = '800 14px system-ui, sans-serif'; g.textAlign = 'center'; g.lineWidth = 3; g.strokeStyle = 'rgba(60,40,30,0.55)';
+          g.strokeText(`톡톡 ${got}/${need}`, r.cx, r.y0 - 6); g.fillStyle = '#ffffff'; g.fillText(`톡톡 ${got}/${need}`, r.cx, r.y0 - 6);
+        }
       }
     }
     fxs.sparks = fxs.sparks.filter(p => (p.t += dt) < p.life);
