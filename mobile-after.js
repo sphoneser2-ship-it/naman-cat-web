@@ -177,6 +177,38 @@
     }, 100);
   } catch (e) { console.error(e); }
 
+  /* ---------- iPhone (Safari): every smoothed prop picture gets its own pixels ----------
+     The desktop code smooths a prop on one shared scratch canvas per size and then copies it with drawImage.
+     Safari copies canvas-to-canvas lazily, so two props of the same size drawn in one frame (the food bowl and
+     the water bowl) both ended up with the last picture: two blue water bowls until feeding redrew the food bowl.
+     Here the finished pixels are written straight into the picture's own canvas with putImageData. */
+  try {
+    const pool = {};
+    smoothArt = function (spec, fn) {
+      if (spec.key !== undefined) { const hit = pCache.get(spec.key); if (hit) return hit; }
+      const w = spec.w, h = spec.h, s = pScratchFor(w, h), g = s.cx;
+      g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.clearRect(0, 0, w, h);
+      g.save(); g.translate(spec.ox, spec.oy); fn(g); g.restore();
+      const src = new Uint32Array(g.getImageData(0, 0, w, h).data.buffer);
+      s.mid.fill(0); s.ob.fill(0);
+      scale2xInto(src, w, h, s.mid, 0, 0, w - 1, h - 1);
+      scale2xInto(s.mid, w * 2, h * 2, s.ob, 0, 0, w * 2 - 1, h * 2 - 1);
+      let out;
+      if (spec.key !== undefined) {
+        out = document.createElement('canvas'); out.width = w * PSK; out.height = h * PSK;
+        if (pCache.size > 200) pCache.clear();
+        pCache.set(spec.key, out);
+      } else {                                   // unnamed pictures: a small ring of canvases, so one frame never reuses one
+        const k = w + 'x' + h, ring = pool[k] || (pool[k] = { i: 0, c: [] });
+        ring.i = (ring.i + 1) % 12;
+        out = ring.c[ring.i] || (ring.c[ring.i] = Object.assign(document.createElement('canvas'), { width: w * PSK, height: h * PSK }));
+      }
+      out.getContext('2d').putImageData(s.oi, 0, 0);
+      return out;
+    };
+    pCache.clear();                              // drop pictures made before this fix
+  } catch (e) { console.error(e); }
+
   /* ---------- the water bowl never looks like the food bowl ---------- */
   try {
     // colours are compared the way eyes see them (CIE Lab), so red next to coral or pink next to coral count as "the same"
